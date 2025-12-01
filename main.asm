@@ -10,10 +10,20 @@
               ;  us   * XTAL / scaler - 1 
 .equ DELAY_MS = 100000 * (16 / 256.00) - 1
 
-.equ RED_LIGHT_PIN = PB2
-.equ YLW_LIGHT_PIN = PD2
-.equ GRN_LIGHT_PIN = PC2
+; Traffic Lights facing North/South
+.equ RED_LIGHT_PIN_NS = PB4
+.equ YLW_LIGHT_PIN_NS = PB3
+.equ GRN_LIGHT_PIN_NS = PB2
 
+; Traffic lights facing East/West
+.equ RED_LIGHT_PIN_EW = PC1
+.equ YLW_LIGHT_PIN_EW = PC2
+.equ GRN_LIGHT_PIN_EW = PC3
+
+.def decFlag = r21
+.def incFlag = r22
+
+.equ ledCounter = 0x0100
 
 ; Vector Table
 ;------------------------------------------------------------------------------
@@ -60,7 +70,7 @@ delay:
           clr       r20
           sts       TCCR1A, r20                   ; CTC mode
           ldi       r20, (1 << WGM12) | (1 << CS12)
-          sts       TCCR1B, r20                   ; Clock Prescaler – setting the clock starts the timer
+          sts       TCCR1B, r20                   ; Clock Prescaler â€“ setting the clock starts the timer
 
           ldi       r20, (1 << OCIE1A)
           sts       TIMSK1, r20
@@ -74,7 +84,7 @@ Monitor_OCF1A:
           clr       r20
           sts       TCCR1B, r20
 
-          ; Clear OCF1A flag – write a 1 to OCF1A bit in TIFR1
+          ; Clear OCF1A flag â€“ write a 1 to OCF1A bit in TIFR1
           ldi       r20, (1 << OCF1A)
           out       TIFR1, r20
 
@@ -104,4 +114,5 @@ timer1_isr:
           sts       TCNT1L, r20
 
           
+
           reti
