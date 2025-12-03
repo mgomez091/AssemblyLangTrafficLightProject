@@ -19,7 +19,7 @@
 .equ NS_WLK = PB1                       ; North-South white walk LED pin 
 .equ NS_DWK = PB0                       ; North-South red don't-walk LED pin 
 
-; East-West Lights
+; East/ West Pins
 .equ EW_GRN = PC3                       ; East-West green LED pin 
 .equ EW_YEL = PC2                       ; East-West yellow LED pin 
 .equ EW_RED = PC1                       ; East-West red LED pin 
@@ -33,8 +33,8 @@
 ; Vairables
 .def temp = r16                         ; Temporary registers
 .def tickFlag = r21                     ; Flag set every 100ms by timer ISR 
-.def nsReq = r22                        ; N/S 
-.def ewReq = r23                        ; Flag: EW crosswalk request 
+.def nsReq = r22                        ; N/S crosswalk request flag
+.def ewReq = r23                        ; E/W crosswalf request flag
 
 ; --- SRAM VARIABLES (Manual Mapping) --- 
 .equ state = 0x0100                     ; Current FSM state (0–5) 
@@ -112,285 +112,283 @@ main:
 ; application main loop 
 ; ------------------------------------------------------------ 
 main_loop: 
-          tst       tickFlag          ; Check if a 100ms tick occurred 
-          breq      main_loop         ; If zero, keep waiting here 
+          tst       tickFlag            ; Check if a 100ms tick occurred 
+          breq      main_loop           ; If zero, keep waiting here 
 
-          clr       tickFlag          ; Clear tickFlag for next tick 
+          clr       tickFlag            ; Clear tickFlag for next tick 
           
-          ; Increment State Timer 
-          lds       r16, stateTimer   ; Load current state time 
-          inc       r16               ; +1 tick (100ms) 
-          sts       stateTimer, r16   ; Store back 
+          ; increment state timer 
+          lds       r16, stateTimer     ; Load current state time 
+          inc       r16                 ; +1 tick (100ms) 
+          sts       stateTimer, r16     ; Store back 
           
-          call      check_state       ; Run FSM logic for this tick 
-          rjmp      main_loop         ; Loop forever 
+          call      check_state         ; Run FSM logic for this tick 
+          rjmp      main_loop           ; Loop forever 
 
 ; state machine logic 
 ; ------------------------------------------------------------ 
 check_state: 
-          lds       r17, state        ; Load current FSM state into r17 
+          lds       r17, state          ; Load current FSM state into r17 
 
-          ; Check which state we are in 
-          ; Uses brne + rjmp to solve "branch out of reach" errors
-          
-          cpi       r17, 0            ; Check State 0
-          brne      check_st_1        ; If not 0, check next
-          rjmp      do_ns_green       ; If 0, jump to handler
+          ; check which state we are in 
+          cpi       r17, 0              ; Check State 0
+          brne      check_st_1          ; If not 0, check next
+          rjmp      do_ns_green         ; If 0, jump to handler
 
 check_st_1:
-          cpi       r17, 1            ; Check State 1
+          cpi       r17, 1              ; Check State 1
           brne      check_st_2
           rjmp      do_ns_yellow      
 
 check_st_2:
-          cpi       r17, 2            ; Check State 2
+          cpi       r17, 2              ; Check State 2
           brne      check_st_3
           rjmp      do_all_red_1      
 
 check_st_3:
-          cpi       r17, 3            ; Check State 3
+          cpi       r17, 3              ; Check State 3
           brne      check_st_4
           rjmp      do_ew_green       
 
 check_st_4:
-          cpi       r17, 4            ; Check State 4
+          cpi       r17, 4              ; Check State 4
           brne      check_st_5
           rjmp      do_ew_yellow      
 
 check_st_5:
-          cpi       r17, 5            ; Check State 5
+          cpi       r17, 5              ; Check State 5
           brne      end_check_state
           rjmp      do_all_red_2      
 
 end_check_state:
-          ret                         ; If state out of range, just return 
+          ret                           ; If state out of range, just return 
 
 ; State 0: NS Green 
 ; ------------------------------------------------------------ 
 do_ns_green: 
-          ; Set Lights 
-          sbi       PORTB, NS_GRN     ; Turn NS green ON 
-          cbi       PORTB, NS_YEL     ; Turn NS yellow OFF 
-          cbi       PORTB, NS_RED     ; Turn NS red OFF 
-          sbi       PORTC, EW_RED     ; Turn EW red ON (EW stops) 
-          call      safe_ped_lights   ; Both sides: don't-walk on, walk off 
+          ; set lights 
+          sbi       PORTB, NS_GRN       ; Turn NS green ON 
+          cbi       PORTB, NS_YEL       ; Turn NS yellow OFF 
+          cbi       PORTB, NS_RED       ; Turn NS red OFF 
+          sbi       PORTC, EW_RED       ; Turn EW red ON (EW stops) 
+          call      safe_ped_lights     ; Both sides: don't-walk on, walk off 
 
-          ; Check Time (20 ticks = 2s) 
-          lds       r16, stateTimer   ; Load how long we've been in this state 
-          cpi       r16, 20           ; Has it been 2 seconds? 
-          brsh      chg_st_0          ; If >= 20, change state
-          ret                         ; Else, return to main loop
+          ; check time (20 ticks = 2s) 
+          lds       r16, stateTimer     ; Load how long we've been in this state 
+          cpi       r16, 20             ; Has it been 2 seconds? 
+          brsh      chg_st_0            ; If greater or equal, change state
+          ret                           ; Otherwise, keep waiting
 
 chg_st_0:
-          ; Change State 
-          ldi       r16, 1            ; Next state = 1 (NS yellow) 
-          sts       state, r16        ; Save new state 
-          clr       r16               ; r16 = 0 
-          sts       stateTimer, r16   ; Reset state timer 
+          ; switch to next state
+          ldi       r16, 1              ; Load next state ID (1)
+          sts       state, r16          ; Save new state 
+          clr       r16                 ; Clear the timer
+          sts       stateTimer, r16     ; Reset timer for next state
           ret
 
 ; State 1: NS Yellow 
 ; ------------------------------------------------------------ 
 do_ns_yellow: 
-          cbi       PORTB, NS_GRN     ; Turn NS green OFF 
-          sbi       PORTB, NS_YEL     ; Turn NS yellow ON 
-          call      safe_ped_lights   ; Pedestrians: don't-walk 
+          cbi       PORTB, NS_GRN       ; Turn OFF Green
+          sbi       PORTB, NS_YEL       ; Turn ON Yellow
+          call      safe_ped_lights     ; Ensure pedestrians wait
 
-          lds       r16, stateTimer   ; Load state timer 
-          cpi       r16, 10           ; Wait 1 seconds in yellow 
-          brsh      chg_st_1          ; If >= 10, change state
-          ret                         ; Else return
+          lds       r16, stateTimer     ; Get current time
+          cpi       r16, 10             ; Wait 1 second (10 ticks)
+          brsh      chg_st_1            ; If done, switch state
+          ret                           ; Else return
 
 chg_st_1:
-          ldi       r16, 2            ; Next state = 2 (all-red, NS walk check) 
-          sts       state, r16        ; Save new state 
-          clr       r16               ; r16 = 0 
-          sts       stateTimer, r16   ; Reset state timer 
+          ldi       r16, 2              ; Next state ID (2)
+          sts       state, r16          ; Save new state 
+          clr       r16                 ; r16 = 0 
+          sts       stateTimer, r16     ; Reset state timer 
           ret
 
 ; State 2: All Red (Check NS Walk) 
 ; ------------------------------------------------------------ 
 do_all_red_1: 
-          cbi       PORTB, NS_YEL     ; Ensure NS yellow is OFF 
-          sbi       PORTB, NS_RED     ; NS red ON 
-          sbi       PORTC, EW_RED     ; EW red ON (both directions red) 
+          cbi       PORTB, NS_YEL       ; Turn OFF Yellow
+          sbi       PORTB, NS_RED       ; Turn ON Red
+          sbi       PORTC, EW_RED       ; Keep EW Red ON (Safety delay)
           
-          ; Check NS Walk Request 
-          tst       nsReq             ; Is there a NS walk request? 
-          breq      skip_ns_walk      ; If zero, skip special walk handling 
+          ; see if someone pushed the button
+          tst       nsReq               ; Check the NS request flag
+          breq      skip_ns_walk        ; If 0, skip the walk logic
           
-          ; Handle Walk Logic 
-          call      handle_ns_walk    ; Manage NS walk/blink timing 
-          ret                         ; Don't advance state while walking 
+          ; handle the crosswalk
+          call      handle_ns_walk      ; Run the walk light sequence
+          ret                           ; Stay in this state while walking
 
 skip_ns_walk: 
-          call      safe_ped_lights   ; No walk requested: both don't-walk 
-          lds       r16, stateTimer   ; Load time in all-red state 
-          cpi       r16, 10           ; Stay here 1 seconds as safety delay 
-          brsh      chg_st_2          ; If >= 10, change state
-          ret                         ; Else return
+          call      safe_ped_lights     ; Ensure walk lights are OFF
+          lds       r16, stateTimer     ; Get current time
+          cpi       r16, 10             ; Wait 1 second for safety
+          brsh      chg_st_2            ; If done, switch state
+          ret
 
 chg_st_2:
-          ldi       r16, 3            ; Next state = 3 (EW green) 
-          sts       state, r16        ; Update state 
+          ldi       r16, 3              ; Next state ID (3)
+          sts       state, r16          ; Save it
           clr       r16 
-          sts       stateTimer, r16   ; Reset state timer 
+          sts       stateTimer, r16     ; Reset timer
           ret
 
 ; State 3: EW Green 
 ; ------------------------------------------------------------ 
 do_ew_green: 
-          sbi       PORTB, NS_RED     ; NS red ON 
-          sbi       PORTC, EW_GRN     ; EW green ON 
-          cbi       PORTC, EW_RED     ; EW red OFF 
-          call      safe_ped_lights   ; Pedestrians: don't-walk 
+          sbi       PORTB, NS_RED       ; Keep NS Red ON
+          sbi       PORTC, EW_GRN       ; Turn ON East-West Green
+          cbi       PORTC, EW_RED       ; Turn OFF East-West Red
+          call      safe_ped_lights     ; Ensure pedestrians wait
 
-          lds       r16, stateTimer   ; Load time in EW green 
-          cpi       r16, 20           ; 2 seconds of EW green 
-          brsh      chg_st_3          ; If >= 20, change state
-          ret                         ; Else return
+          lds       r16, stateTimer     ; Get current time
+          cpi       r16, 20             ; Wait 2 seconds (20 ticks)
+          brsh      chg_st_3            ; If done, switch state
+          ret
 
 chg_st_3:
-          ldi       r16, 4            ; Next state = 4 (EW yellow) 
-          sts       state, r16        ; Update state 
+          ldi       r16, 4              ; Next state ID (4)
+          sts       state, r16          ; Save it
           clr       r16 
-          sts       stateTimer, r16   ; Reset state timer 
+          sts       stateTimer, r16     ; Reset timer
           ret
 
 ; State 4: EW Yellow 
 ; ------------------------------------------------------------ 
 do_ew_yellow: 
-          cbi       PORTC, EW_GRN     ; Turn EW green OFF 
-          sbi       PORTC, EW_YEL     ; Turn EW yellow ON 
-          call      safe_ped_lights   ; Pedestrians: don't-walk 
+          cbi       PORTC, EW_GRN       ; Turn OFF Green
+          sbi       PORTC, EW_YEL       ; Turn ON Yellow
+          call      safe_ped_lights     ; Ensure pedestrians wait
 
-          lds       r16, stateTimer   ; Load timer 
-          cpi       r16, 10           ; Wait 1 seconds in yellow 
-          brsh      chg_st_4          ; If >= 10, change state
+          lds       r16, stateTimer     ; Get current time
+          cpi       r16, 10             ; Wait 1 second (10 ticks)
+          brsh      chg_st_4            ; If done, switch state
           ret
 
 chg_st_4:
-          ldi       r16, 5            ; Next state = 5 (all-red, EW walk check) 
-          sts       state, r16        ; Update state 
+          ldi       r16, 5              ; Next state ID (5)
+          sts       state, r16          ; Save it
           clr       r16 
-          sts       stateTimer, r16   ; Reset state timer 
+          sts       stateTimer, r16     ; Reset timer
           ret
 
 ; State 5: All Red (Check EW Walk) 
 ; ------------------------------------------------------------ 
 do_all_red_2: 
-          cbi       PORTC, EW_YEL     ; Make sure EW yellow is OFF 
-          sbi       PORTC, EW_RED     ; EW red ON 
-          sbi       PORTB, NS_RED     ; NS red ON (both red again) 
+          cbi       PORTC, EW_YEL       ; Turn OFF Yellow
+          sbi       PORTC, EW_RED       ; Turn ON Red
+          sbi       PORTB, NS_RED       ; Keep NS Red ON
           
-          tst       ewReq             ; Is there an EW walk request? 
-          breq      skip_ew_walk      ; If not, skip walk handling 
+          tst       ewReq               ; Check if EW button was pressed
+          breq      skip_ew_walk        ; If not, skip walk logic
 
-          call      handle_ew_walk    ; Handle EW walk/blink 
-          ret                         ; Stay here while walk active 
+          call      handle_ew_walk      ; Run walk light sequence
+          ret                           ; Stay here while walking
 
 skip_ew_walk: 
-          call      safe_ped_lights   ; No walk: both don't-walk ON 
-          lds       r16, stateTimer   ; Load time in this all-red 
-          cpi       r16, 10           ; Wait 1 seconds 
-          brsh      chg_st_5          ; If >= 10, change state
+          call      safe_ped_lights     ; Ensure walk lights are OFF
+          lds       r16, stateTimer     ; Get current time
+          cpi       r16, 10             ; Wait 1 second for safety
+          brsh      chg_st_5            ; If done, switch state
           ret
 
 chg_st_5:
-          ldi       r16, 0            ; Go back to state 0 (NS green) 
-          sts       state, r16        ; Save state 
+          ldi       r16, 0              ; Loop back to Start (State 0)
+          sts       state, r16          ; Save it
           clr       r16 
-          sts       stateTimer, r16   ; Reset timer 
+          sts       stateTimer, r16     ; Reset timer
           ret
 
 ; Subroutines 
 ; ------------------------------------------------------------ 
 safe_ped_lights: 
-          cbi       PORTB, NS_WLK     ; Turn NS walk OFF 
-          sbi       PORTB, NS_DWK     ; Turn NS don't-walk ON 
+          cbi       PORTB, NS_WLK       ; Turn OFF NS Walk Light
+          sbi       PORTB, NS_DWK       ; Turn ON NS Don't Walk Light
 
-          cbi       PORTC, EW_WLK     ; Turn EW walk OFF 
-          sbi       PORTC, EW_DWK     ; Turn EW don't-walk ON 
-          ret                         ; Return to caller 
+          cbi       PORTC, EW_WLK       ; Turn OFF EW Walk Light
+          sbi       PORTC, EW_DWK       ; Turn ON EW Don't Walk Light
+          ret                           ; Go back
 
 handle_ns_walk: 
-          lds       r18, walkTimer    ; Load walk timer 
-          inc       r18               ; Advance walk timer by 1 tick 
-          sts       walkTimer, r18    ; Store back 
+          lds       r18, walkTimer      ; Get the walk timer value
+          inc       r18                 ; Add 1 to it
+          sts       walkTimer, r18      ; Save it
           
-          ; Pause State Timer so red phase doesn't auto-advance 
+          ; pause the main timer so we don't leave this state yet
           clr       r16 
-          sts       stateTimer, r16   ; Freeze stateTimer while walking 
+          sts       stateTimer, r16     ; Keep state timer at 0
 
-          cbi       PORTB, NS_DWK     ; Turn NS don't-walk OFF (allow walking) 
+          cbi       PORTB, NS_DWK       ; Turn OFF the Don't Walk light
           
-          ; Blink Logic: solid first half, blink second half 
-          cpi       r18, 20           ; First 2s = solid ON 
-          brlo      ns_solid_on       ; If <20, solid walk 
+          ; logic to blink the light
+          cpi       r18, 20             ; Is it the first 2 seconds?
+          brlo      ns_solid_on         ; If yes, keep light solid
 
-          sbrc      r18, 2            ; Test bit 2 of walkTimer to blink 
-          rjmp      ns_blink_off      ; If bit set, turn walk OFF 
+          sbrc      r18, 2              ; Check a specific bit to toggle (blink)
+          rjmp      ns_blink_off        ; If bit is 1, turn off
 
 ns_solid_on: 
-          sbi       PORTB, NS_WLK     ; Turn NS walk ON 
-          rjmp      check_ns_done     ; Skip OFF code 
+          sbi       PORTB, NS_WLK       ; Turn ON Walk light
+          rjmp      check_ns_done       ; Skip the off command
 
 ns_blink_off: 
-          cbi       PORTB, NS_WLK     ; Turn NS walk OFF 
+          cbi       PORTB, NS_WLK       ; Turn OFF Walk light
 
 check_ns_done: 
-          cpi       r18, 40           ; Total of 40 ticks (4 seconds) 
-          brlo      end_ns_walk_handle ; If less, keep walking 
+          cpi       r18, 40             ; Have 4 seconds passed?
+          brlo      end_ns_walk_handle  ; If not, keep going
 
-          clr       nsReq             ; Done: clear NS request flag 
-          clr       r18               ; Reset walk timer 
+          clr       nsReq               ; Clear the button request flag
+          clr       r18                 ; Reset the walk timer
           sts       walkTimer, r18 
 end_ns_walk_handle: 
-          ret                         ; Return to caller 
+          ret                           ; Go back
 
 handle_ew_walk: 
-          lds       r18, walkTimer    ; Load walk timer 
-          inc       r18               ; Advance walk timer 
-          sts       walkTimer, r18    ; Store back 
+          lds       r18, walkTimer      ; Get walk timer
+          inc       r18                 ; Increment it
+          sts       walkTimer, r18      ; Save it
           
           clr       r16 
-          sts       stateTimer, r16   ; Pause state timer during walk 
+          sts       stateTimer, r16     ; Pause main timer
 
-          cbi       PORTC, EW_DWK     ; Turn EW don't-walk OFF 
+          cbi       PORTC, EW_DWK       ; Turn OFF Don't Walk
           
-          cpi       r18, 20           ; First 2s solid ON 
-          brlo      ew_solid_on       ; If <20, solid 
+          cpi       r18, 20             ; First 2 seconds?
+          brlo      ew_solid_on         ; Keep solid
 
-          sbrc      r18, 2            ; Use bit 2 for blinking 
-          rjmp      ew_blink_off      ; If bit set, turn OFF 
+          sbrc      r18, 2              ; Check bit for blinking
+          rjmp      ew_blink_off        ; Turn off if bit is set
 
 ew_solid_on: 
-          sbi       PORTC, EW_WLK     ; Turn EW walk ON 
-          rjmp      check_ew_done     ; Skip OFF code 
+          sbi       PORTC, EW_WLK       ; Turn ON Walk
+          rjmp      check_ew_done     
 
 ew_blink_off: 
-          cbi       PORTC, EW_WLK     ; Turn EW walk OFF 
+          cbi       PORTC, EW_WLK       ; Turn OFF Walk
 
 check_ew_done: 
-          cpi       r18, 40           ; 4 seconds total walk time 
-          brlo      end_ew_walk_handle ; If less, continue walking 
+          cpi       r18, 40             ; 4 seconds passed?
+          brlo      end_ew_walk_handle 
 
-          clr       ewReq             ; Clear EW walk request 
-          clr       r18               ; Reset walk timer 
+          clr       ewReq               ; Clear request flag
+          clr       r18                 ; Reset timer
           sts       walkTimer, r18 
 end_ew_walk_handle: 
-          ret                         ; Return to caller 
+          ret                         
 
 ; ISRs 
 ; ------------------------------------------------------------ 
 ns_btn_isr: 
-          ldi       nsReq, 1          ; Set NS walk request flag 
-          reti                        ; Return from interrupt 
+          ldi       nsReq, 1            ; Remember that NS button was pressed
+          reti                          ; Return from interrupt
 
 ew_btn_isr: 
-          ldi       ewReq, 1          ; Set EW walk request flag 
-          reti                        ; Return from interrupt 
+          ldi       ewReq, 1            ; Remember that EW button was pressed
+          reti                          ; Return from interrupt
 
 timer_isr: 
-          ldi       tickFlag, 1       ; Set tick flag (100ms elapsed) 
-          reti                        ; Return from interrupt
+          ldi       tickFlag, 1         ; Signal that 100ms has passed
+          reti                          ; Return from interrupt
