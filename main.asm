@@ -195,7 +195,7 @@ do_ns_yellow:
           call      safe_ped_lights     ; Ensure pedestrians wait
 
           lds       r16, stateTimer     ; Get current time
-          cpi       r16, 10             ; Wait 1 second (10 ticks)
+          cpi       r16, 20             ; Wait 2 second (20 ticks)
           brsh      chg_st_1            ; If done, switch state
           ret                           ; Else return
 
@@ -224,7 +224,7 @@ do_all_red_1:
 skip_ns_walk: 
           call      safe_ped_lights     ; Ensure walk lights are OFF
           lds       r16, stateTimer     ; Get current time
-          cpi       r16, 10             ; Wait 1 second for safety
+          cpi       r16, 20             ; Wait 2 seconds for safety
           brsh      chg_st_2            ; If done, switch state
           ret
 
@@ -263,7 +263,7 @@ do_ew_yellow:
           call      safe_ped_lights     ; Ensure pedestrians wait
 
           lds       r16, stateTimer     ; Get current time
-          cpi       r16, 10             ; Wait 1 second (10 ticks)
+          cpi       r16, 20             ; Wait 2 seconds (20 ticks)
           brsh      chg_st_4            ; If done, switch state
           ret
 
@@ -290,7 +290,7 @@ do_all_red_2:
 skip_ew_walk: 
           call      safe_ped_lights     ; Ensure walk lights are OFF
           lds       r16, stateTimer     ; Get current time
-          cpi       r16, 10             ; Wait 1 second for safety
+          cpi       r16, 20             ; Wait 2 seconds for safety
           brsh      chg_st_5            ; If done, switch state
           ret
 
@@ -392,3 +392,4 @@ ew_btn_isr:
 timer_isr: 
           ldi       tickFlag, 1         ; Signal that 100ms has passed
           reti                          ; Return from interrupt
+
