@@ -3,7 +3,11 @@
 ;
 ; Created: 11/29/2025 6:06:02 PM
 ; Author : Miguel Getzain Gomez, Richard Ortega, Cheleyson Dorvilien
-; Desc   : Using 
+; Desc   : Our code runs a fully automated traffic intersection that works like a real traffic light system.
+It cycles through green, yellow, and red lights for both directions, and it safely handles pedestrians when they 
+press the walk button. The timing of each light and walk signal is controlled using the microcontroller’s 
+interrupts and a simple state machine. Overall, the project works by using basic microcontroller features such 
+as GPIO pins, external interrupts, timers, and FSM logic.
 
 ; Declare constants and global variables
 ;------------------------------------------------------------------------------
@@ -392,4 +396,5 @@ ew_btn_isr:
 timer_isr: 
           ldi       tickFlag, 1         ; Signal that 100ms has passed
           reti                          ; Return from interrupt
+
 
