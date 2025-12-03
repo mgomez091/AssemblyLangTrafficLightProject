@@ -34,7 +34,7 @@ as GPIO pins, external interrupts, timers, and FSM logic.
 .equ NS_BTN = PD2                       ; North-South walk button pin (INT0) 
 .equ EW_BTN = PD3                       ; East-West walk button pin (INT1) 
 
-; Vairables
+; Variables
 .def temp = r16                         ; Temporary registers
 .def tickFlag = r21                     ; Flag set every 100ms by timer ISR 
 .def nsReq = r22                        ; N/S crosswalk request flag
@@ -396,5 +396,6 @@ ew_btn_isr:
 timer_isr: 
           ldi       tickFlag, 1         ; Signal that 100ms has passed
           reti                          ; Return from interrupt
+
 
 
